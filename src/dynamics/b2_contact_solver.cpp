@@ -147,7 +147,6 @@ b2ContactSolver::b2ContactSolver(b2ContactSolverDef* def)
 	{
 		if (shareSameObject(m_velocityConstraints,i,i+1)) {
 			// next constriants by order is processing same body,
-			// can we find other constriants to process between these two so OOO can process in parallel?
 			for (int32 j = i + 2 ; j < m_count; j++)
 			{
 				if (shareSameObject(m_velocityConstraints,i+1,j)) {
