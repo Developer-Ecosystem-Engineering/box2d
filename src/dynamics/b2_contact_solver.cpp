@@ -27,6 +27,7 @@
 #include "box2d/b2_fixture.h"
 #include "box2d/b2_stack_allocator.h"
 #include "box2d/b2_world.h"
+#include <random>
 
 // Solver debugging is normally disabled because the block solver sometimes has to deal with a poorly conditioned effective mass matrix.
 #define B2_DEBUG_SOLVER 0
@@ -47,6 +48,13 @@ struct b2ContactPositionConstraint
 	float radiusA, radiusB;
 	int32 pointCount;
 };
+
+// true if velocity constraints elements i and j in array vc are sharing a body
+static bool shareSameObject(const b2ContactVelocityConstraint *vc, int32 i, int32 j)
+{
+	return (vc[i].indexA == vc[j].indexA || vc[i].indexA == vc[j].indexB) ||
+		   (vc[i].indexB == vc[j].indexA || vc[i].indexB == vc[j].indexB);
+}
 
 b2ContactSolver::b2ContactSolver(b2ContactSolverDef* def)
 {
@@ -132,6 +140,25 @@ b2ContactSolver::b2ContactSolver(b2ContactSolverDef* def)
 			vcp->velocityBias = 0.0f;
 
 			pc->localPoints[j] = cp->localPoint;
+		}
+	}
+
+	for (int32 i = 0; i < m_count-1; ++i)
+	{
+		if (shareSameObject(m_velocityConstraints,i,i+1)) {
+			// next constriants by order is processing same body,
+			// can we find other constriants to process between these two so OOO can process in parallel?
+			for (int32 j = i + 2 ; j < m_count; j++)
+			{
+				if (shareSameObject(m_velocityConstraints,i+1,j)) {
+					// still same body, keep looking
+					continue;
+				}
+				// found one, swap to create some space
+				std::swap(m_positionConstraints[i+1],m_positionConstraints[j]);
+				std::swap(m_velocityConstraints[i+1],m_velocityConstraints[j]);
+				break;
+			}
 		}
 	}
 }
